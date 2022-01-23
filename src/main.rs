@@ -144,21 +144,23 @@ impl State {
 
         // Use enclosing block so that the mut borrow of encoder can be dropped for later use
         {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[
-                    // This is what [[location(0)]] in the fragment shader targets
-                    wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(self.clear_color),
-                            store: true,
+            let mut render_pass = encoder.begin_render_pass(
+                &wgpu::RenderPassDescriptor {
+                    label: Some("Render Pass"),
+                    color_attachments: &[
+                        // This is what [[location(0)]] in the fragment shader targets
+                        wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(self.clear_color),
+                                store: true,
+                            },
                         },
-                    },
-                ],
-                depth_stencil_attachment: None,
-            });
+                    ],
+                    depth_stencil_attachment: None,
+                }
+            );
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.draw(0..3, 0..1);
