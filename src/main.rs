@@ -67,8 +67,18 @@ impl State {
         }
     }
 
-    fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::CursorMoved {position, ..} => {
+                let x = position.x / self.size.width as f64;
+                let y = position.y / self.size.height as f64;
+
+                self.clear_color = wgpu::Color{r: x, g: y, b: 0.0, a: 1.0};
+
+                true
+            },
+            _ => false,
+        }
     }
 
     fn update(&mut self) {}
