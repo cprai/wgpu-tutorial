@@ -9,6 +9,7 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
+    clear_color: wgpu::Color,
 }
 
 
@@ -45,12 +46,15 @@ impl State {
 
         surface.configure(&device, &config);
 
+        let clear_color = wgpu::Color {r: 0.1, g: 0.2, b: 0.3, a: 1.0};
+
         Self {
             surface,
             device,
             queue,
             config,
             size,
+            clear_color,
         }
     }
 
@@ -85,9 +89,7 @@ impl State {
                         view: &view,
                         resolve_target: None,
                         ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(
-                                wgpu::Color {r: 0.1, g: 0.2, b: 0.3, a: 1.0}
-                            ),
+                            load: wgpu::LoadOp::Clear(self.clear_color),
                             store: true,
                         },
                     },
