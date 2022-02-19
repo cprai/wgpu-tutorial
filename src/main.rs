@@ -25,9 +25,11 @@ struct State {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    diffuse_bind_group: wgpu::BindGroup,
-    #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
+    diffuse_bind_group_main: wgpu::BindGroup,
+    diffuse_bind_group_alt: wgpu::BindGroup,
+    #[allow(dead_code)] texture_main: texture::Texture,
+    #[allow(dead_code)] texture_alt: texture::Texture,
+    use_main_texture: bool,
 }
 
 
@@ -106,8 +108,8 @@ impl State {
 
         let shader = device.create_shader_module(&wgpu::include_wgsl!("shader.wgsl"));
 
-        let diffuse_bytes = include_bytes!("texture.png");
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "texture.png");
+        let texture_main = texture::Texture::from_bytes(&device, &queue, include_bytes!("texture_main.png"), "texture_main.png");
+        let texture_alt = texture::Texture::from_bytes(&device, &queue, include_bytes!("texture_alt.png"), "texture_alt.png");
 
         let texture_bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
@@ -138,6 +140,42 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             }
         );
+
+        let diffuse_bind_group_main = device.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture_main.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&texture_main.sampler),
+                    }
+                ],
+                label: Some("diffuse_bind_group_main"),
+            }
+        );
+
+        let diffuse_bind_group_alt = device.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture_alt.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&texture_alt.sampler),
+                    }
+                ],
+                label: Some("diffuse_bind_group_alt"),
+            }
+        );
+
+        let use_main_texture = true;
 
         let render_pipeline_layout = device.create_pipeline_layout(
             &wgpu::PipelineLayoutDescriptor {
@@ -209,23 +247,6 @@ impl State {
 
         let num_indices = INDICES.len() as u32;
 
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    }
-                ],
-                label: Some("diffuse_bind_group"),
-            }
-        );
-
         Self {
             surface,
             device,
@@ -237,8 +258,11 @@ impl State {
             vertex_buffer,
             index_buffer,
             num_indices,
-            diffuse_bind_group,
-            diffuse_texture,
+            diffuse_bind_group_main,
+            diffuse_bind_group_alt,
+            texture_main,
+            texture_alt,
+            use_main_texture,
         }
     }
 
@@ -259,6 +283,17 @@ impl State {
 
                 self.clear_color = wgpu::Color{r: x, g: y, b: 0.0, a: 1.0};
 
+                true
+            },
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state: ElementState::Released,
+                    virtual_keycode: Some(VirtualKeyCode::Space),
+                    ..
+                },
+                ..
+            } => {
+                self.use_main_texture = !self.use_main_texture;
                 true
             },
             _ => false,
@@ -295,7 +330,12 @@ impl State {
             );
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            if self.use_main_texture {
+                render_pass.set_bind_group(0, &self.diffuse_bind_group_main, &[]);
+            }
+            else {
+                render_pass.set_bind_group(0, &self.diffuse_bind_group_alt, &[]);
+            }
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
