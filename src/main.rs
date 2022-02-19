@@ -217,11 +217,13 @@ impl State {
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: "fs_main",
-                    targets: &[wgpu::ColorTargetState {
-                        format: config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    }],
+                    targets: &[
+                        wgpu::ColorTargetState {
+                            format: config.format,
+                            blend: Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        }
+                    ],
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
