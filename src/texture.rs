@@ -1,4 +1,5 @@
 use image::GenericImageView;
+use std::path::Path;
 
 
 pub struct Texture {
@@ -10,9 +11,13 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str) -> Self {
-        let image = image::load_from_memory(bytes).unwrap();
-        let image_rgba = image.as_rgba8().unwrap();
+    pub fn load<PathRef: AsRef<Path>>(device: &wgpu::Device, queue: &wgpu::Queue, path: PathRef) -> Self {
+        // Needed to appease the borrow checker
+        let path_copy = path.as_ref().to_path_buf();
+        let label = path_copy.to_str();
+
+        let image = image::open(path).unwrap();
+        let image_rgba = image.to_rgba8();
         let dimensions = image.dimensions();
 
         let size = wgpu::Extent3d {
@@ -25,7 +30,7 @@ impl Texture {
         let texture = device.create_texture(
             &wgpu::TextureDescriptor {
                 size,
-                label: Some(label),
+                label,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -46,7 +51,7 @@ impl Texture {
                 aspect: wgpu::TextureAspect::All,
             },
             // The actual pixel data
-            image_rgba,
+            &image_rgba,
             // The layout of the texture
             wgpu::ImageDataLayout {
                 offset: 0,
