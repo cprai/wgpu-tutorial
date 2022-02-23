@@ -223,11 +223,6 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
-    diffuse_bind_group_main: wgpu::BindGroup,
-    diffuse_bind_group_alt: wgpu::BindGroup,
-    #[allow(dead_code)] texture_main: texture::Texture,
-    #[allow(dead_code)] texture_alt: texture::Texture,
-    use_main_texture: bool,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -279,9 +274,6 @@ impl State {
 
         let shader = device.create_shader_module(&wgpu::include_wgsl!("shader.wgsl"));
 
-        let texture_main = texture::Texture::load(&device, &queue, res_dir.join("texture_main.png"));
-        let texture_alt = texture::Texture::load(&device, &queue, res_dir.join("texture_alt.png"));
-
         let texture_bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -311,42 +303,6 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             }
         );
-
-        let diffuse_bind_group_main = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture_main.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&texture_main.sampler),
-                    }
-                ],
-                label: Some("diffuse_bind_group_main"),
-            }
-        );
-
-        let diffuse_bind_group_alt = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture_alt.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&texture_alt.sampler),
-                    }
-                ],
-                label: Some("diffuse_bind_group_alt"),
-            }
-        );
-
-        let use_main_texture = true;
 
         let camera = Camera {
             // Position the camera one unit up and 2 units back
@@ -517,11 +473,6 @@ impl State {
             size,
             clear_color,
             render_pipeline,
-            diffuse_bind_group_main,
-            diffuse_bind_group_alt,
-            texture_main,
-            texture_alt,
-            use_main_texture,
             camera,
             camera_uniform,
             camera_buffer,
@@ -556,17 +507,6 @@ impl State {
 
                 self.clear_color = wgpu::Color{r: x, g: y, b: 0.0, a: 1.0};
 
-                true
-            },
-            WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Released,
-                    virtual_keycode: Some(VirtualKeyCode::Space),
-                    ..
-                },
-                ..
-            } => {
-                self.use_main_texture = !self.use_main_texture;
                 true
             },
             _ => false,
@@ -618,12 +558,6 @@ impl State {
             );
 
             render_pass.set_pipeline(&self.render_pipeline);
-            if self.use_main_texture {
-                render_pass.set_bind_group(0, &self.diffuse_bind_group_main, &[]);
-            }
-            else {
-                render_pass.set_bind_group(0, &self.diffuse_bind_group_alt, &[]);
-            }
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model_instanced(&self.obj_model, 0..self.instances.len() as u32);
