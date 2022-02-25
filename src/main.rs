@@ -231,6 +231,8 @@ fn create_render_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     color_format: wgpu::TextureFormat,
+    depth_format: Option<wgpu::TextureFormat>,
+    vertex_layouts: &[wgpu::VertexBufferLayout],
     shader_desc: wgpu::ShaderModuleDescriptor,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(&shader_desc);
@@ -242,10 +244,7 @@ fn create_render_pipeline(
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[
-                    model::ModelVertex::desc(),
-                    InstanceRaw::desc(),
-                ],
+                buffers: vertex_layouts,
             },
             fragment: Some(
                 wgpu::FragmentState {
@@ -254,7 +253,12 @@ fn create_render_pipeline(
                     targets: &[
                         wgpu::ColorTargetState {
                             format: color_format,
-                            blend: Some(wgpu::BlendState::REPLACE),
+                            blend: Some(
+                                wgpu::BlendState {
+                                    alpha: wgpu::BlendComponent::REPLACE,
+                                    color: wgpu::BlendComponent::REPLACE,
+                                }
+                            ),
                             write_mask: wgpu::ColorWrites::ALL,
                         }
                     ],
@@ -272,15 +276,14 @@ fn create_render_pipeline(
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: Some(
-                wgpu::DepthStencilState {
-                    format: texture::Texture::DEPTH_FORMAT,
+            depth_stencil: depth_format
+                .map(|format| wgpu::DepthStencilState {
+                    format,
                     depth_write_enabled: true,
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
-                }
-            ),
+                }),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -494,6 +497,8 @@ impl State {
             &device,
             &render_pipeline_layout,
             config.format,
+            Some(texture::Texture::DEPTH_FORMAT),
+            &[model::ModelVertex::desc(), InstanceRaw::desc()],
             wgpu::include_wgsl!("shader.wgsl"),
         );
 
