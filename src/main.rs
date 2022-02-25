@@ -84,6 +84,18 @@ impl Instance {
 }
 
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct LightUniform {
+    position: [f32; 3],
+    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    _padding: u32,
+    color: [f32; 3],
+    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    _padding2: u32,
+}
+
+
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const SPACE_BETWEEN: f32 = 3.0;
 
@@ -232,6 +244,9 @@ struct State {
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     obj_model: model::Model,
+    light_uniform: LightUniform,
+    light_buffer: wgpu::Buffer,
+    light_bind_group: wgpu::BindGroup,
 }
 
 
@@ -360,12 +375,53 @@ impl State {
             }
         );
 
+        let light_uniform = LightUniform {
+            position: [2.0, 2.0, 2.0],
+            _padding: 0,
+            color: [1.0, 1.0, 1.0],
+            _padding2: 0,
+        };
+
+        let light_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Light VB"),
+                contents: bytemuck::cast_slice(&[light_uniform]),
+                // We'll want to update our lights position, so we use COPY_DST
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: None,
+            });
+
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.as_entire_binding(),
+            }],
+            label: None,
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(
             &wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
+                    &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             }
@@ -482,6 +538,9 @@ impl State {
             instance_buffer,
             depth_texture,
             obj_model,
+            light_buffer,
+            light_uniform,
+            light_bind_group,
         }
     }
 
@@ -517,6 +576,14 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
+
+        let light_position: cgmath::Vector3<_> = self.light_uniform.position.into();
+        let light_quaternion = cgmath::Quaternion::from_axis_angle(
+            (0.0, 1.0, 0.0).into(),
+            cgmath::Deg(1.0),
+        );
+        self.light_uniform.position = (light_quaternion * light_position).into();
+        self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light_uniform]));
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -559,6 +626,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model_instanced(&self.obj_model, 0..self.instances.len() as u32);
         }
