@@ -15,6 +15,16 @@ struct CameraUniform {
 var<uniform> camera: CameraUniform;
 
 
+struct LightUniform {
+    position: vec3<f32>;
+    color: vec3<f32>;
+};
+
+
+[[group(2), binding(0)]]
+var<uniform> light: LightUniform;
+
+
 struct VertexInput {
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] tex_coords: vec2<f32>;
@@ -55,5 +65,13 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+    // We don't need (or want) much ambient light, so 0.05 is fine
+    let ambient_strength = 0.05;
+    let ambient_color = light.color * ambient_strength;
+
+    let result = ambient_color * object_color.xyz;
+
+    return vec4<f32>(result, object_color.a);
 }
