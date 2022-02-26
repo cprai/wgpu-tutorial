@@ -194,3 +194,22 @@ impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 }
+
+
+pub trait DrawLight<'a> {
+    fn draw_light(&mut self, model: &'a Model);
+}
+
+
+impl<'a, 'b> DrawLight<'b> for wgpu::RenderPass<'a>
+    where
+        'b: 'a,
+{
+    fn draw_light(&mut self, model: &'a Model) {
+        let mesh = &model.meshes[0];
+
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        self.draw_indexed(0..mesh.num_elements, 0, 0..1);
+    }
+}

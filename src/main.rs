@@ -2,6 +2,7 @@ mod model;
 mod texture;
 
 use crate::model::DrawModel;
+use crate::model::DrawLight;
 
 use cgmath::prelude::*;
 use winit::event::*;
@@ -303,6 +304,7 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
+    light_render_pipeline: wgpu::RenderPipeline,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -487,7 +489,6 @@ impl State {
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
-                    &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             }
@@ -500,6 +501,26 @@ impl State {
             Some(texture::Texture::DEPTH_FORMAT),
             &[model::ModelVertex::desc(), InstanceRaw::desc()],
             wgpu::include_wgsl!("shader.wgsl"),
+        );
+
+        let light_render_pipeline_layout = device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("Light Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &light_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            }
+        );
+
+        let light_render_pipeline = create_render_pipeline(
+            &device,
+            &light_render_pipeline_layout,
+            config.format,
+            Some(texture::Texture::DEPTH_FORMAT),
+            &[model::ModelVertex::desc()],
+            wgpu::include_wgsl!("light.wgsl"),
         );
 
         let camera_controller = CameraController::new(0.2);
@@ -551,6 +572,7 @@ impl State {
             size,
             clear_color,
             render_pipeline,
+            light_render_pipeline,
             camera,
             camera_uniform,
             camera_buffer,
@@ -648,9 +670,13 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.light_bind_group, &[]);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.draw_model_instanced(&self.obj_model, 0..self.instances.len() as u32);
+
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.light_bind_group, &[]);
+            render_pass.draw_light(&self.obj_model);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
