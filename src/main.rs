@@ -302,7 +302,6 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
     light_render_pipeline: wgpu::RenderPipeline,
     camera: Camera,
@@ -354,8 +353,6 @@ impl State {
         surface.configure(&device, &config);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
-
-        let clear_color = wgpu::Color {r: 0.1, g: 0.2, b: 0.3, a: 1.0};
 
         let texture_bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
@@ -570,7 +567,6 @@ impl State {
             queue,
             config,
             size,
-            clear_color,
             render_pipeline,
             light_render_pipeline,
             camera,
@@ -604,14 +600,6 @@ impl State {
         }
 
         match event {
-            WindowEvent::CursorMoved {position, ..} => {
-                let x = position.x / self.size.width as f64;
-                let y = position.y / self.size.height as f64;
-
-                self.clear_color = wgpu::Color{r: x, g: y, b: 0.0, a: 1.0};
-
-                true
-            },
             _ => false,
         }
     }
@@ -648,7 +636,14 @@ impl State {
                             view: &view,
                             resolve_target: None,
                             ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(self.clear_color),
+                                load: wgpu::LoadOp::Clear(
+                                    wgpu::Color {
+                                        r: 0.0,
+                                        g: 0.0,
+                                        b: 0.0,
+                                        a: 1.0
+                                    }
+                                ),
                                 store: true,
                             },
                         },
