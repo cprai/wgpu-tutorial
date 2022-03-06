@@ -105,10 +105,10 @@ impl Model {
 
         for mat in obj_materials {
             let diffuse_path = mat.diffuse_texture;
-            let diffuse_texture = texture::Texture::load(device, queue, containing_folder.join(diffuse_path));
+            let diffuse_texture = texture::Texture::load(device, queue, containing_folder.join(diffuse_path), false);
 
             let normal_path = mat.normal_texture;
-            let normal_texture = texture::Texture::load(device, queue, containing_folder.join(normal_path));
+            let normal_texture = texture::Texture::load(device, queue, containing_folder.join(normal_path), true);
 
             let bind_group = device.create_bind_group(
                 &wgpu::BindGroupDescriptor {

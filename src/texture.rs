@@ -11,7 +11,7 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn load<PathRef: AsRef<Path>>(device: &wgpu::Device, queue: &wgpu::Queue, path: PathRef) -> Self {
+    pub fn load<PathRef: AsRef<Path>>(device: &wgpu::Device, queue: &wgpu::Queue, path: PathRef, is_normal_map: bool) -> Self {
         // Needed to appease the borrow checker
         let path_copy = path.as_ref().to_path_buf();
         let label = path_copy.to_str();
@@ -35,7 +35,7 @@ impl Texture {
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 // Most images are stored using sRGB so we need to reflect that here.
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                format: if is_normal_map { wgpu::TextureFormat::Rgba8Unorm } else { wgpu::TextureFormat::Rgba8UnormSrgb },
                 // TEXTURE_BINDING tells wgpu that we want to use this texture in shaders
                 // COPY_DST means that we want to copy data to this texture
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
