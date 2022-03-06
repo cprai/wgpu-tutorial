@@ -34,14 +34,17 @@ struct VertexInput {
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] tex_coords: vec2<f32>;
     [[location(2)]] normal: vec3<f32>;
+    [[location(3)]] tangent: vec3<f32>;
+    [[location(4)]] bitangent: vec3<f32>;
 };
 
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] tex_coords: vec2<f32>;
-    [[location(1)]] world_position: vec3<f32>;
-    [[location(2)]] world_normal: vec3<f32>;
+    [[location(1)]] tangent_position: vec3<f32>;
+    [[location(2)]] tangent_light_position: vec3<f32>;
+    [[location(3)]] tangent_view_position: vec3<f32>;
 };
 
 
@@ -78,12 +81,25 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
         instance.normal_matrix_2,
     );
 
-    var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
+    // Construct the tangent matrix
+    let world_normal = normalize(normal_matrix * model.normal);
+    let world_tangent = normalize(normal_matrix * model.tangent);
+    let world_bitangent = normalize(normal_matrix * model.bitangent);
+    let tangent_matrix = transpose(
+        mat3x3<f32>(
+            world_tangent,
+            world_bitangent,
+            world_normal,
+        )
+    );
+
+    let world_position = model_matrix * vec4<f32>(model.position, 1.0);
 
     out.clip_position = camera.view_proj * world_position;
     out.tex_coords = model.tex_coords;
-    out.world_position = world_position.xyz;
-    out.world_normal = normal_matrix * model.normal;
+    out.tangent_position = tangent_matrix * world_position.xyz;
+    out.tangent_view_position = tangent_matrix * camera.view_pos.xyz;
+    out.tangent_light_position = tangent_matrix * light.position;
 
     return out;
 }
@@ -96,8 +112,8 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 
     // Create the lighting vectors
     let tangent_normal = object_normal.xyz * 2.0 - 1.0;
-    let light_dir = normalize(light.position - in.world_position);
-    let view_dir = normalize(camera.view_pos.xyz - in.world_position);
+    let light_dir = normalize(in.tangent_light_position - in.tangent_position);
+    let view_dir = normalize(in.tangent_view_position - in.tangent_position);
     let half_dir = normalize(view_dir + light_dir);
 
     // We don't need (or want) much ambient light, so 0.05 is fine
